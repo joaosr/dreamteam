@@ -4,15 +4,25 @@ from rest_framework.serializers import (
      ModelSerializer,
      SerializerMethodField
      )
+from django.core.exceptions import ValidationError
 from dreamteam.core.models import UserMember, Team
 from django.db.models import Q
 
 class UserMemberSerializer(ModelSerializer):
     team = SerializerMethodField()
-    password = SerializerMethodField()
+    # password = SerializerMethodField()
     class Meta:
         model = UserMember
         fields = ('first_name', 'last_name', 'email', 'password', 'team')
+        extra_kwargs = {
+            "password": {'write_only': True}
+        }
+
+    def create(self, validated_data):
+        user_member = UserMember.objects.create(**validated_data)
+        user_member.set_password(raw_password=user_member.password)
+        user_member.save()
+        return user_member
 
     def get_team(self, obj):
         if obj.team:
@@ -57,7 +67,7 @@ class LoginSerialiser(ModelSerializer):
             raise ValidationError('This username/password is not valid')
 
         if _user_member:
-            if not user_member.check_password(password):
+            if not _user_member.check_password(password):
                 raise ValidationError('Incorrect credential please try again.')
 
         data['token'] = "SOME RANDOM TOKEN"
