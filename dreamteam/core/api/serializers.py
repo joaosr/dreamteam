@@ -5,23 +5,26 @@ from rest_framework.serializers import (
      SerializerMethodField
      )
 from django.core.exceptions import ValidationError
+from rest_framework.exceptions import NotFound
 from dreamteam.core.models import UserMember, Team
+from dreamteam.core.views import send_confirmation_email
 from django.db.models import Q
+from django.core import serializers
 
 class UserMemberSerializer(ModelSerializer):
-    team = SerializerMethodField()
-    # password = SerializerMethodField()
     class Meta:
         model = UserMember
-        fields = ('first_name', 'last_name', 'email', 'password', 'team')
+        fields = ('first_name', 'last_name', 'email', 'password')
         extra_kwargs = {
-            "password": {'write_only': True}
+            "password": {'write_only': True},
+            "token": {'read_only': True}
         }
 
     def create(self, validated_data):
         user_member = UserMember.objects.create(**validated_data)
         user_member.set_password(raw_password=user_member.password)
         user_member.save()
+        send_confirmation_email(user_member.email, user_member.token)
         return user_member
 
     def get_team(self, obj):
